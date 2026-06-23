@@ -1,15 +1,14 @@
-package app_test
+package app
 
 import (
 	"testing"
 
-	"github.com/Irongoshan-ux/gophkeeper/internal/app"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGenerateSelfSignedCert(t *testing.T) {
 	t.Parallel()
-	cert, err := app.GenerateSelfSignedCert()
+	cert, err := generateSelfSignedCert()
 	require.NoError(t, err)
 	require.NotEmpty(t, cert.Certificate)
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	gophkeeperv1 "github.com/Irongoshan-ux/gophkeeper/api/gophkeeper/v1"
+	"github.com/Irongoshan-ux/gophkeeper/internal/converter"
 	"github.com/Irongoshan-ux/gophkeeper/internal/model"
 	"github.com/Irongoshan-ux/gophkeeper/internal/repository"
 	"github.com/Irongoshan-ux/gophkeeper/internal/service"
@@ -50,7 +51,7 @@ func (s *Server) Login(ctx context.Context, req *gophkeeperv1.LoginRequest) (*go
 
 // CreateSecret stores a new encrypted secret.
 func (s *Server) CreateSecret(ctx context.Context, req *gophkeeperv1.CreateSecretRequest) (*gophkeeperv1.Secret, error) {
-	secret, err := s.secrets.Create(ctx, protoToType(req.GetType()), req.GetName(), req.GetEncryptedData())
+	secret, err := s.secrets.Create(ctx, converter.ProtoToSecretType(req.GetType()), req.GetName(), req.GetEncryptedData())
 	if err != nil {
 		return nil, mapSecretError(err)
 	}
@@ -81,7 +82,7 @@ func (s *Server) ListSecrets(ctx context.Context, _ *gophkeeperv1.ListSecretsReq
 
 // UpdateSecret replaces secret data.
 func (s *Server) UpdateSecret(ctx context.Context, req *gophkeeperv1.UpdateSecretRequest) (*gophkeeperv1.Secret, error) {
-	secret, err := s.secrets.Update(ctx, req.GetId(), protoToType(req.GetType()), req.GetName(), req.GetEncryptedData(), req.GetVersion())
+	secret, err := s.secrets.Update(ctx, req.GetId(), converter.ProtoToSecretType(req.GetType()), req.GetName(), req.GetEncryptedData(), req.GetVersion())
 	if err != nil {
 		return nil, mapSecretError(err)
 	}
@@ -114,46 +115,12 @@ func (s *Server) Sync(ctx context.Context, req *gophkeeperv1.SyncRequest) (*goph
 func secretToProto(s *model.Secret) *gophkeeperv1.Secret {
 	return &gophkeeperv1.Secret{
 		Id:            s.ID,
-		Type:          typeToProto(s.Type),
+		Type:          converter.SecretTypeToProto(s.Type),
 		Name:          s.Name,
 		EncryptedData: s.EncryptedData,
 		Version:       s.Version,
 		UpdatedAt:     timestamppb.New(s.UpdatedAt),
 		Deleted:       s.IsDeleted(),
-	}
-}
-
-func typeToProto(t model.SecretType) gophkeeperv1.SecretType {
-	switch t {
-	case model.SecretTypeCredentials:
-		return gophkeeperv1.SecretType_SECRET_TYPE_CREDENTIALS
-	case model.SecretTypeText:
-		return gophkeeperv1.SecretType_SECRET_TYPE_TEXT
-	case model.SecretTypeBinary:
-		return gophkeeperv1.SecretType_SECRET_TYPE_BINARY
-	case model.SecretTypeCard:
-		return gophkeeperv1.SecretType_SECRET_TYPE_CARD
-	case model.SecretTypeOTP:
-		return gophkeeperv1.SecretType_SECRET_TYPE_OTP
-	default:
-		return gophkeeperv1.SecretType_SECRET_TYPE_UNSPECIFIED
-	}
-}
-
-func protoToType(t gophkeeperv1.SecretType) model.SecretType {
-	switch t {
-	case gophkeeperv1.SecretType_SECRET_TYPE_CREDENTIALS:
-		return model.SecretTypeCredentials
-	case gophkeeperv1.SecretType_SECRET_TYPE_TEXT:
-		return model.SecretTypeText
-	case gophkeeperv1.SecretType_SECRET_TYPE_BINARY:
-		return model.SecretTypeBinary
-	case gophkeeperv1.SecretType_SECRET_TYPE_CARD:
-		return model.SecretTypeCard
-	case gophkeeperv1.SecretType_SECRET_TYPE_OTP:
-		return model.SecretTypeOTP
-	default:
-		return model.SecretTypeUnspecified
 	}
 }
 

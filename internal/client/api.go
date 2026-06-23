@@ -10,6 +10,7 @@ import (
 
 	gophkeeperv1 "github.com/Irongoshan-ux/gophkeeper/api/gophkeeper/v1"
 	"github.com/Irongoshan-ux/gophkeeper/internal/auth"
+	"github.com/Irongoshan-ux/gophkeeper/internal/converter"
 	"github.com/Irongoshan-ux/gophkeeper/internal/model"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -91,7 +92,7 @@ func (a *API) Login(ctx context.Context, login, password string) (string, string
 // CreateSecret uploads an encrypted secret.
 func (a *API) CreateSecret(ctx context.Context, secretType model.SecretType, name string, encrypted []byte) (*model.Secret, error) {
 	resp, err := a.secret.CreateSecret(a.authCtx(ctx), &gophkeeperv1.CreateSecretRequest{
-		Type:          modelTypeToProto(secretType),
+		Type:          converter.SecretTypeToProto(secretType),
 		Name:          name,
 		EncryptedData: encrypted,
 	})
@@ -127,7 +128,7 @@ func (a *API) ListSecrets(ctx context.Context) ([]*model.Secret, error) {
 func (a *API) UpdateSecret(ctx context.Context, id string, secretType model.SecretType, name string, encrypted []byte, version int64) (*model.Secret, error) {
 	resp, err := a.secret.UpdateSecret(a.authCtx(ctx), &gophkeeperv1.UpdateSecretRequest{
 		Id:            id,
-		Type:          modelTypeToProto(secretType),
+		Type:          converter.SecretTypeToProto(secretType),
 		Name:          name,
 		EncryptedData: encrypted,
 		Version:       version,
@@ -166,27 +167,10 @@ func (a *API) authCtx(ctx context.Context) context.Context {
 	return auth.OutgoingContext(ctx, a.token)
 }
 
-func modelTypeToProto(t model.SecretType) gophkeeperv1.SecretType {
-	switch t {
-	case model.SecretTypeCredentials:
-		return gophkeeperv1.SecretType_SECRET_TYPE_CREDENTIALS
-	case model.SecretTypeText:
-		return gophkeeperv1.SecretType_SECRET_TYPE_TEXT
-	case model.SecretTypeBinary:
-		return gophkeeperv1.SecretType_SECRET_TYPE_BINARY
-	case model.SecretTypeCard:
-		return gophkeeperv1.SecretType_SECRET_TYPE_CARD
-	case model.SecretTypeOTP:
-		return gophkeeperv1.SecretType_SECRET_TYPE_OTP
-	default:
-		return gophkeeperv1.SecretType_SECRET_TYPE_UNSPECIFIED
-	}
-}
-
 func protoToSecret(s *gophkeeperv1.Secret) *model.Secret {
 	sec := &model.Secret{
 		ID:            s.GetId(),
-		Type:          protoTypeToModel(s.GetType()),
+		Type:          converter.ProtoToSecretType(s.GetType()),
 		Name:          s.GetName(),
 		EncryptedData: s.GetEncryptedData(),
 		Version:       s.GetVersion(),
@@ -199,21 +183,4 @@ func protoToSecret(s *gophkeeperv1.Secret) *model.Secret {
 		sec.DeletedAt = &t
 	}
 	return sec
-}
-
-func protoTypeToModel(t gophkeeperv1.SecretType) model.SecretType {
-	switch t {
-	case gophkeeperv1.SecretType_SECRET_TYPE_CREDENTIALS:
-		return model.SecretTypeCredentials
-	case gophkeeperv1.SecretType_SECRET_TYPE_TEXT:
-		return model.SecretTypeText
-	case gophkeeperv1.SecretType_SECRET_TYPE_BINARY:
-		return model.SecretTypeBinary
-	case gophkeeperv1.SecretType_SECRET_TYPE_CARD:
-		return model.SecretTypeCard
-	case gophkeeperv1.SecretType_SECRET_TYPE_OTP:
-		return model.SecretTypeOTP
-	default:
-		return model.SecretTypeUnspecified
-	}
 }

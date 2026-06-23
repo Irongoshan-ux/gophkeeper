@@ -85,11 +85,6 @@ func RunGRPC(ctx context.Context, srv *grpc.Server, addr string) error {
 	}
 }
 
-// GenerateSelfSignedCert returns a localhost self-signed TLS certificate for development.
-func GenerateSelfSignedCert() (tls.Certificate, error) {
-	return generateSelfSignedCert()
-}
-
 func generateSelfSignedCert() (tls.Certificate, error) {
 	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
 	if err != nil {

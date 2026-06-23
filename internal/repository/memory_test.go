@@ -36,13 +36,14 @@ func TestMemoryRepositoriesFullFlow(t *testing.T) {
 	require.Len(t, list, 1)
 
 	created.Name = "updated"
-	created.Version = 2
+	created.Version = 1
 	updated, err := secrets.Update(context.Background(), created)
 	require.NoError(t, err)
 	require.Equal(t, "updated", updated.Name)
+	require.Equal(t, int64(2), updated.Version)
 
 	now := time.Now()
-	deleted, err := secrets.SoftDelete(context.Background(), owner.ID, created.ID, now, 3)
+	deleted, err := secrets.SoftDelete(context.Background(), owner.ID, created.ID, now, updated.Version)
 	require.NoError(t, err)
 	require.True(t, deleted.IsDeleted())
 

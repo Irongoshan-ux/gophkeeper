@@ -159,16 +159,17 @@ func (q *Queries) ListSecretsSince(ctx context.Context, arg ListSecretsSincePara
 
 const softDeleteSecret = `-- name: SoftDeleteSecret :one
 UPDATE secrets
-SET deleted_at = $3, updated_at = $3, version = $4
+SET deleted_at = $3, updated_at = $3, version = version + 1
 WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
+  AND ($4::bigint = 0 OR version = $4)
 RETURNING id, user_id, type, name, encrypted_data, version, created_at, updated_at, deleted_at
 `
 
 type SoftDeleteSecretParams struct {
-	ID        pgtype.UUID
-	UserID    pgtype.UUID
-	DeletedAt pgtype.Timestamptz
-	Version   int64
+	ID              pgtype.UUID
+	UserID          pgtype.UUID
+	DeletedAt       pgtype.Timestamptz
+	ExpectedVersion int64
 }
 
 func (q *Queries) SoftDeleteSecret(ctx context.Context, arg SoftDeleteSecretParams) (Secret, error) {
@@ -176,7 +177,7 @@ func (q *Queries) SoftDeleteSecret(ctx context.Context, arg SoftDeleteSecretPara
 		arg.ID,
 		arg.UserID,
 		arg.DeletedAt,
-		arg.Version,
+		arg.ExpectedVersion,
 	)
 	var i Secret
 	err := row.Scan(
@@ -195,19 +196,20 @@ func (q *Queries) SoftDeleteSecret(ctx context.Context, arg SoftDeleteSecretPara
 
 const updateSecret = `-- name: UpdateSecret :one
 UPDATE secrets
-SET name = $3, encrypted_data = $4, type = $5, version = $6, updated_at = $7
+SET name = $3, encrypted_data = $4, type = $5, version = version + 1, updated_at = $6
 WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
+  AND ($7::bigint = 0 OR version = $7)
 RETURNING id, user_id, type, name, encrypted_data, version, created_at, updated_at, deleted_at
 `
 
 type UpdateSecretParams struct {
-	ID            pgtype.UUID
-	UserID        pgtype.UUID
-	Name          string
-	EncryptedData []byte
-	Type          int16
-	Version       int64
-	UpdatedAt     time.Time
+	ID              pgtype.UUID
+	UserID          pgtype.UUID
+	Name            string
+	EncryptedData   []byte
+	Type            int16
+	UpdatedAt       time.Time
+	ExpectedVersion int64
 }
 
 func (q *Queries) UpdateSecret(ctx context.Context, arg UpdateSecretParams) (Secret, error) {
@@ -217,8 +219,8 @@ func (q *Queries) UpdateSecret(ctx context.Context, arg UpdateSecretParams) (Sec
 		arg.Name,
 		arg.EncryptedData,
 		arg.Type,
-		arg.Version,
 		arg.UpdatedAt,
+		arg.ExpectedVersion,
 	)
 	var i Secret
 	err := row.Scan(

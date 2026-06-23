@@ -14,14 +14,16 @@ ORDER BY updated_at DESC;
 
 -- name: UpdateSecret :one
 UPDATE secrets
-SET name = $3, encrypted_data = $4, type = $5, version = $6, updated_at = $7
+SET name = $3, encrypted_data = $4, type = $5, version = version + 1, updated_at = $6
 WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
+  AND (sqlc.arg(expected_version)::bigint = 0 OR version = sqlc.arg(expected_version))
 RETURNING *;
 
 -- name: SoftDeleteSecret :one
 UPDATE secrets
-SET deleted_at = $3, updated_at = $3, version = $4
+SET deleted_at = $3, updated_at = $3, version = version + 1
 WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
+  AND (sqlc.arg(expected_version)::bigint = 0 OR version = sqlc.arg(expected_version))
 RETURNING *;
 
 -- name: ListSecretsSince :many

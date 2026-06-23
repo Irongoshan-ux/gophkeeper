@@ -3,6 +3,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -52,7 +53,7 @@ func (s *AuthService) Login(ctx context.Context, login, password string) (token,
 	}
 	u, err := s.users.GetByLogin(ctx, login)
 	if err != nil {
-		if err == repository.ErrNotFound {
+		if errors.Is(err, repository.ErrNotFound) {
 			return "", "", repository.ErrNotFound
 		}
 		return "", "", err
@@ -125,20 +126,13 @@ func (s *SecretService) Update(ctx context.Context, id string, secretType model.
 	if err := validation.SecretName(name); err != nil {
 		return nil, err
 	}
-	existing, err := s.secrets.Get(ctx, userID, id)
-	if err != nil {
-		return nil, err
-	}
-	if version > 0 && existing.Version != version {
-		return nil, repository.ErrConflict
-	}
 	return s.secrets.Update(ctx, &model.Secret{
 		ID:            id,
 		UserID:        userID,
 		Type:          secretType,
 		Name:          name,
 		EncryptedData: encrypted,
-		Version:       existing.Version + 1,
+		Version:       version,
 	})
 }
 
@@ -148,15 +142,8 @@ func (s *SecretService) Delete(ctx context.Context, id string, version int64) (*
 	if err != nil {
 		return nil, err
 	}
-	existing, err := s.secrets.Get(ctx, userID, id)
-	if err != nil {
-		return nil, err
-	}
-	if version > 0 && existing.Version != version {
-		return nil, repository.ErrConflict
-	}
 	now := time.Now()
-	return s.secrets.SoftDelete(ctx, userID, id, now, existing.Version+1)
+	return s.secrets.SoftDelete(ctx, userID, id, now, version)
 }
 
 // Sync returns secrets changed since the given time.

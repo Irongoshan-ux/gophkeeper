@@ -201,17 +201,17 @@ func (r *PostgresSecretRepository) Update(ctx context.Context, secret *model.Sec
 	}
 	now := time.Now()
 	row, err := r.q.UpdateSecret(ctx, db.UpdateSecretParams{
-		ID:            sid,
-		UserID:        uid,
-		Name:          secret.Name,
-		EncryptedData: secret.EncryptedData,
-		Type:          int16(secret.Type),
-		Version:       secret.Version,
-		UpdatedAt:     now,
+		ID:              sid,
+		UserID:          uid,
+		Name:            secret.Name,
+		EncryptedData:   secret.EncryptedData,
+		Type:            int16(secret.Type),
+		UpdatedAt:       now,
+		ExpectedVersion: secret.Version,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
+			return nil, r.secretUpdateConflictOrNotFound(ctx, secret.UserID, secret.ID)
 		}
 		return nil, fmt.Errorf("update secret: %w", err)
 	}
@@ -219,7 +219,7 @@ func (r *PostgresSecretRepository) Update(ctx context.Context, secret *model.Sec
 }
 
 // SoftDelete marks a secret as deleted.
-func (r *PostgresSecretRepository) SoftDelete(ctx context.Context, userID, id string, deletedAt time.Time, version int64) (*model.Secret, error) {
+func (r *PostgresSecretRepository) SoftDelete(ctx context.Context, userID, id string, deletedAt time.Time, expectedVersion int64) (*model.Secret, error) {
 	uid, err := uuidFromString(userID)
 	if err != nil {
 		return nil, ErrNotFound
@@ -229,18 +229,25 @@ func (r *PostgresSecretRepository) SoftDelete(ctx context.Context, userID, id st
 		return nil, ErrNotFound
 	}
 	row, err := r.q.SoftDeleteSecret(ctx, db.SoftDeleteSecretParams{
-		ID:        sid,
-		UserID:    uid,
-		DeletedAt: pgtype.Timestamptz{Time: deletedAt, Valid: true},
-		Version:   version,
+		ID:              sid,
+		UserID:          uid,
+		DeletedAt:       pgtype.Timestamptz{Time: deletedAt, Valid: true},
+		ExpectedVersion: expectedVersion,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
+			return nil, r.secretUpdateConflictOrNotFound(ctx, userID, id)
 		}
 		return nil, fmt.Errorf("delete secret: %w", err)
 	}
 	return secretFromRow(row), nil
+}
+
+func (r *PostgresSecretRepository) secretUpdateConflictOrNotFound(ctx context.Context, userID, id string) error {
+	if _, err := r.Get(ctx, userID, id); err != nil {
+		return ErrNotFound
+	}
+	return ErrConflict
 }
 
 // ListSince returns secrets changed after the given timestamp.

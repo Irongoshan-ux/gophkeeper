@@ -72,7 +72,14 @@ func secretCreateCmd() *cobra.Command {
 				die(err)
 			}
 
-			st, payload, err := BuildPayload(secretType, login, pass, text, metadata, cardNumber)
+			st, payload, err := BuildPayload(SecretCreateInput{
+				Type:       secretType,
+				Login:      login,
+				Password:   pass,
+				Text:       text,
+				Metadata:   metadata,
+				CardNumber: cardNumber,
+			})
 			if err != nil {
 				die(err)
 			}
@@ -190,30 +197,40 @@ func secretDeleteCmd() *cobra.Command {
 	return cmd
 }
 
+// SecretCreateInput holds CLI flags for creating a secret.
+type SecretCreateInput struct {
+	Type       string
+	Login      string
+	Password   string
+	Text       string
+	Metadata   string
+	CardNumber string
+}
+
 // BuildPayload constructs a secret payload from CLI flags.
-func BuildPayload(secretType, login, pass, text, metadata, cardNumber string) (model.SecretType, *model.Payload, error) {
-	payload := &model.Payload{Metadata: metadata, Fields: map[string]string{}}
-	switch secretType {
+func BuildPayload(in SecretCreateInput) (model.SecretType, *model.Payload, error) {
+	payload := &model.Payload{Metadata: in.Metadata, Fields: map[string]string{}}
+	switch in.Type {
 	case "credentials":
-		payload.Fields["login"] = login
-		payload.Fields["password"] = pass
+		payload.Fields["login"] = in.Login
+		payload.Fields["password"] = in.Password
 		return model.SecretTypeCredentials, payload, nil
 	case "text":
-		payload.Fields["text"] = text
+		payload.Fields["text"] = in.Text
 		return model.SecretTypeText, payload, nil
 	case "card":
-		if err := validation.Luhn(cardNumber); err != nil {
+		if err := validation.Luhn(in.CardNumber); err != nil {
 			return 0, nil, err
 		}
-		payload.Fields["number"] = cardNumber
+		payload.Fields["number"] = in.CardNumber
 		return model.SecretTypeCard, payload, nil
 	case "otp":
-		payload.Fields["secret"] = text
+		payload.Fields["secret"] = in.Text
 		return model.SecretTypeOTP, payload, nil
 	case "binary":
-		payload.Binary = []byte(text)
+		payload.Binary = []byte(in.Text)
 		return model.SecretTypeBinary, payload, nil
 	default:
-		return 0, nil, fmt.Errorf("unknown secret type: %s", secretType)
+		return 0, nil, fmt.Errorf("unknown secret type: %s", in.Type)
 	}
 }

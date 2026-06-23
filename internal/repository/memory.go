@@ -121,23 +121,31 @@ func (r *MemorySecretRepository) Update(_ context.Context, secret *model.Secret)
 	if !ok || s.UserID != secret.UserID || s.IsDeleted() {
 		return nil, ErrNotFound
 	}
-	secret.UpdatedAt = time.Now()
-	cp := *secret
-	r.secrets[secret.ID] = &cp
+	if secret.Version > 0 && s.Version != secret.Version {
+		return nil, ErrConflict
+	}
+	updated := *secret
+	updated.Version = s.Version + 1
+	updated.UpdatedAt = time.Now()
+	r.secrets[secret.ID] = &updated
+	cp := updated
 	return &cp, nil
 }
 
 // SoftDelete marks a secret deleted.
-func (r *MemorySecretRepository) SoftDelete(_ context.Context, userID, id string, deletedAt time.Time, version int64) (*model.Secret, error) {
+func (r *MemorySecretRepository) SoftDelete(_ context.Context, userID, id string, deletedAt time.Time, expectedVersion int64) (*model.Secret, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	s, ok := r.secrets[id]
 	if !ok || s.UserID != userID || s.IsDeleted() {
 		return nil, ErrNotFound
 	}
+	if expectedVersion > 0 && s.Version != expectedVersion {
+		return nil, ErrConflict
+	}
 	s.DeletedAt = &deletedAt
 	s.UpdatedAt = deletedAt
-	s.Version = version
+	s.Version++
 	cp := *s
 	return &cp, nil
 }
